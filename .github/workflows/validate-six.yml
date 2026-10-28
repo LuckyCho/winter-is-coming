@@ -1,0 +1,41 @@
+name: Validate six-indicator dashboard
+on:
+  push:
+    branches: [feature/six-indicators-ai-review-20261028]
+    paths:
+      - 'scripts/**'
+      - 'tests/**'
+      - 'app.js'
+      - 'index.html'
+      - '.github/workflows/**'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: JavaScript syntax
+        run: node --check app.js
+      - name: Python syntax and unit tests
+        run: |
+          python -m compileall -q scripts
+          python -m unittest discover -s tests -v
+      - name: Refresh all six indicators using live sources
+        run: |
+          python scripts/build_data.py
+          python scripts/collect_fed.py
+          python - <<'PY'
+          import json
+          d=json.load(open('data/indicators.json'))
+          assert len(d['indicators'])==6, 'Expected exactly six indicators'
+          for e in d['indicators']:
+              assert len(e['series'])>=12, e['id']
+              print(e['id'],len(e['series']),e['series'][-1],flush=True)
+          print('SIX_INDICATORS_READY')
+          PY
