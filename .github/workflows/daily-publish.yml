@@ -31,11 +31,19 @@ jobs:
         run: python -m unittest discover -s tests -v
       - name: Refresh public data snapshot
         run: python scripts/build_data.py
+      - name: Collect three Federal Reserve credit indicators
+        run: python scripts/collect_fed.py
+      - name: Generate one-time AI assessment only when all six indicators are fresh
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: python scripts/generate_analysis.py
+        continue-on-error: true
       - name: Commit updated snapshot
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add data/indicators.json
+          if [ -f data/analysis.json ]; then git add data/analysis.json; fi
           if ! git diff --cached --quiet; then
             git commit -m "data: refresh economic indicators [skip ci]"
             git push
@@ -45,6 +53,7 @@ jobs:
           mkdir -p dist/data
           cp index.html styles.css app.js dist/
           cp data/indicators.json dist/data/
+          if [ -f data/analysis.json ]; then cp data/analysis.json dist/data/; fi
           touch dist/.nojekyll
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v4
