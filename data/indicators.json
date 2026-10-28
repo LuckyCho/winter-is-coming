@@ -1,0 +1,50 @@
+{
+  "generated_at": null,
+  "indicators": [
+    {
+      "id": "us_curve",
+      "title": "미국 장단기 금리차",
+      "section": "US TREASURY",
+      "unit": "%p",
+      "kind": "series",
+      "source": "https://fred.stlouisfed.org/series/T10Y3M",
+      "series": []
+    },
+    {
+      "id": "us_hy",
+      "title": "하이일드 신용스프레드",
+      "section": "US CREDIT",
+      "unit": "%p",
+      "kind": "external",
+      "source": "https://fred.stlouisfed.org/series/BAMLH0A0HYM2",
+      "series": []
+    },
+    {
+      "id": "us_ccc",
+      "title": "CCC 이하 신용스프레드",
+      "section": "US CREDIT",
+      "unit": "%p",
+      "kind": "external",
+      "source": "https://fred.stlouisfed.org/series/BAMLH0A3HYC",
+      "series": []
+    },
+    {
+      "id": "us_cli",
+      "title": "미국 경기선행지수 (OECD CLI)",
+      "section": "US LEADING",
+      "unit": "",
+      "kind": "series",
+      "source": "https://data-explorer.oecd.org/",
+      "series": []
+    },
+    {
+      "id": "kr_cli",
+      "title": "한국 경기선행지수 (OECD CLI)",
+      "section": "KR LEADING",
+      "unit": "",
+      "kind": "series",
+      "source": "https://data-explorer.oecd.org/",
+      "series": []
+    }
+  ]
+}
