@@ -1,0 +1,53 @@
+name: Daily economic indicators and Pages
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'data/indicators.json'
+  schedule:
+    - cron: '17 1 * * *'
+  workflow_dispatch:
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+concurrency:
+  group: winter-pages
+  cancel-in-progress: false
+jobs:
+  update-and-deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Test parsers
+        run: python -m unittest discover -s tests -v
+      - name: Refresh public data snapshot
+        run: python scripts/build_data.py
+      - name: Commit updated snapshot
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/indicators.json
+          if ! git diff --cached --quiet; then
+            git commit -m "data: refresh economic indicators [skip ci]"
+            git push
+          fi
+      - name: Prepare static output
+        run: |
+          mkdir -p dist/data
+          cp index.html styles.css app.js dist/
+          cp data/indicators.json dist/data/
+          touch dist/.nojekyll
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: dist
+      - name: Deploy Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
