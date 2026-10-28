@@ -42,11 +42,66 @@ function card(e){
  const note=e.description||FALLBACK_CONFIG.find(x=>x.id===e.id)?.description||'시계열의 변화 방향을 확인하세요.';
  const number=last?fixed(last.value):'—';
  return '<article class="signal-card">'+
-   '<div class="card-head"><div><div class="card-kicker">'+esc(e.section)+'</div><div class="card-title">'+esc(e.title)+'</div></div><span class="card-badge '+status+'">'+esc(label)+'</span></div>'+
+   '<div class="card-head"><div><div class="card-kicker">'+esc(e.section)+'</div><div class="card-title">'+helpTerm(e.title,e.id,'chart')+'</div></div><span class="card-badge '+status+'">'+esc(label)+'</span></div>'+
    '<div class="card-value-row"><div class="card-value">'+number+'<span class="unit">'+(last?esc(e.unit||'지수'):'')+'</span></div><div class="card-change">'+esc(movement)+'</div></div>'+
    chart(pts,e.unit||'지수')+'<div class="card-note">'+esc(note)+'</div>'+
    '<div class="card-foot"><span class="card-date">'+(last?'실제 관측일 '+esc(last.date):'관측치 대기')+'</span><a class="source-link" href="'+esc(e.source)+'" target="_blank" rel="noopener noreferrer">원천 데이터 보기 ↗</a></div></article>';
 }
+const INDICATOR_HELP={
+  us_curve:{
+    definition:'미국 국채 10년물 금리에서 3개월물 금리를 뺀 값입니다.',
+    interpretation:'음수는 장단기 금리 역전, 양수는 정상 금리차입니다. 역전과 이후 정상화는 경기 위험을 살필 단서지만, 단독으로 침체를 확정하지 않습니다.'
+  },
+  us_cli:{
+    definition:'OECD가 여러 경제 선행 신호를 합쳐 만든 미국 경기선행지수입니다.',
+    interpretation:'절대 수준보다 몇 달간 올라가는지 내려가는지가 중요합니다. 상승은 경기 개선 가능성, 하락은 둔화 가능성을 시사합니다.'
+  },
+  kr_cli:{
+    definition:'OECD가 여러 경제 선행 신호를 합쳐 만든 한국 경기선행지수입니다.',
+    interpretation:'최근 3~6개월의 방향 전환이 중요합니다. 미국 지표와 함께 비교하면 경기 흐름 차이를 이해하기 좋습니다.'
+  },
+  us_gz:{
+    definition:'미국 비금융기업 회사채의 수익률과 비슷한 국채 수익률 사이의 차이입니다.',
+    interpretation:'상승하면 기업 신용위험 또는 자금조달 부담이 커질 수 있습니다. 하이일드·CCC 전용 스프레드는 아닙니다.'
+  },
+  us_ebp:{
+    definition:'회사채의 예상 부도위험만으로 설명되지 않는 추가 위험 프리미엄입니다.',
+    interpretation:'상승하면 투자자의 위험 회피가 강화될 수 있습니다. 음수 자체가 위험이 없음을 뜻하지는 않으며, 변화 방향도 함께 봅니다.'
+  },
+  us_recession_prob:{
+    definition:'연준 연구모형이 추정한 향후 12개월 미국 경기침체 확률입니다.',
+    interpretation:'값이 높아지면 모형상 침체 위험이 커진 것입니다. 연준의 공식 경기 전망이나 실제 침체 발생 확률에 대한 보장은 아닙니다.'
+  }
+};
+function helpTerm(label,id,scope){
+ const help=INDICATOR_HELP[id];
+ if(!help)return esc(label);
+ const tooltipId='help-'+scope+'-'+id;
+ return '<span class="indicator-help">'+
+   '<button type="button" class="indicator-name" aria-describedby="'+tooltipId+'" aria-label="'+esc(label)+' 설명 보기">'+esc(label)+'<span class="indicator-info" aria-hidden="true">ⓘ</span></button>'+
+   '<span class="indicator-popover" id="'+tooltipId+'" role="tooltip">'+
+   '<span class="tooltip-heading">무엇을 보나요?</span>'+esc(help.definition)+
+   '<span class="tooltip-heading">어떻게 해석하나요?</span>'+esc(help.interpretation)+
+   '</span></span>';
+}
+function reviewItems(entries,scope){
+ if(!Array.isArray(entries))return '';
+ return '<ul class="review-list">'+entries.map(e=>'<li><strong>'+helpTerm(e.label||'',e.id,scope)+'</strong> '+esc(e.detail||'')+'</li>').join('')+'</ul>';
+}
+function renderReview(review,stale){
+ const positives=reviewItems(review.positives,'positive');
+ const cautions=reviewItems(review.cautions,'caution');
+ const watch=Array.isArray(review.watchpoints)?review.watchpoints.map(x=>'<li>'+esc(x)+'</li>').join(''):'';
+ return '<div class="review-summary"><div class="review-section-label">현재 판단</div><p class="review-headline">'+esc(review.headline||'')+'</p></div>'+
+ '<div class="review-grid">'+
+ '<section class="review-group positive"><h3><span aria-hidden="true">●</span> 긍정 신호</h3>'+positives+'</section>'+
+ '<section class="review-group caution"><h3><span aria-hidden="true">●</span> 주의 신호</h3>'+cautions+'</section>'+
+ '</div>'+
+ '<section class="review-watch"><h3>관찰 포인트</h3><ul>'+watch+'</ul></section>'+
+ '<div class="review-caveat"><strong>유의사항</strong><p>'+esc(review.caveat||'')+'</p></div>'+
+ (stale?'<p class="review-stale">※ 이 의견이 작성된 이후 일부 지표의 관측일이 달라졌습니다. 최신 차트를 따로 확인하세요.</p>':'');
+}
+
 function render(){
  el('cards').innerHTML=state.entries.map(card).join('');
  el('refreshText').textContent=state.updated?'데이터 갱신 '+state.updated.replace('T',' ').slice(0,16)+' UTC':'첫 수집 대기';
@@ -54,8 +109,13 @@ function render(){
  const ai=state.ai;
  if(ai && ai.summary && available.length===6){
    el('outlookTitle').textContent='AI 종합의견 · '+ai.generated_at.slice(0,10)+' 생성';
-   const stale=ai.source_data_generated_at!==state.updated;
-   el('outlookDetail').textContent=ai.summary+(stale?'\n\n※ 이 의견은 최초 생성 시점의 자료로 작성됐으며, 현재 수집된 최신 데이터는 반영되지 않았을 수 있습니다.':'');
+   const dates=new Map((ai.indicators||[]).map(x=>[x.id,x.latest_date]));
+   const stale=state.entries.some(e=>e.series?.length && dates.get(e.id)!==e.series.at(-1).date);
+   if(ai.review && ai.review.headline && Array.isArray(ai.review.positives) && Array.isArray(ai.review.cautions)){
+     el('outlookDetail').innerHTML=renderReview(ai.review,stale);
+   }else{
+     el('outlookDetail').textContent=ai.summary+(stale?'\n\n※ 원래 분석 시점 이후 관측치가 갱신됐습니다.':'');
+   }
  }else if(available.length===6){
    el('outlookTitle').textContent='6개 지표 수집 완료 · AI 분석 대기';
    el('outlookDetail').textContent='원천 데이터 6개가 준비됐습니다. 첫 AI 종합의견이 생성되면 이 영역에 표시됩니다.';

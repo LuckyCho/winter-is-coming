@@ -58,20 +58,46 @@ def main():
     if not key:
         raise RuntimeError("OPENAI_API_KEY is missing; synthesis not generated")
     prompt = (
-        "다음은 미국·한국의 경제위험 지표 6개 최신 관측치와 과거 대비 변화입니다. "
-        "한국어로 객관적이고 신중한 종합의견을 5~8문장, 최대 850자 분량의 문단으로 작성하세요. "
-        "반드시 장단기 금리차, 미국/한국 CLI, GZ 회사채 스프레드, EBP, 모형 경기침체 확률을 모두 해석하세요. "
-        "위험이 커진 증거와 완화된 증거를 구분하고 서로 상충하면 명시하세요. "
-        "기업 전체 GZ를 하이일드/CCC 전용 수치로 오인하지 마세요. "
-        "모형 경기침체 확률을 공식 연준 전망이나 확정 예측으로 표현하지 마세요. "
-        "발표 날짜가 서로 다르다는 점을 밝히고, 자산 비중의 급격한 변경이나 단정적인 매매 지시는 피하세요. "
-        "제공된 자료 이외의 실시간 경제지표, 외부 뉴스, 수치를 추측하지 마세요. "
-        "제목, 마크다운, 목록 없이 본문만 쓰세요.\n"
+        "아래 6개 미국·한국 경제위험 지표를 분석해 한국어 사용자용 짧은 구조화된 의견을 만드세요. "
+        "headline은 1문장으로 결론을 먼저 적습니다. "
+        "positives(긍정 신호), cautions(주의 신호)에 각 2~4개 지표를 배분해 전체 6개 지표를 중복 없이 모두 다룹니다. "
+        "각 항목은 주어진 id, 명료한 지표명(label), 1문장과 실제 수치를 사용한 설명(detail)을 갖습니다. "
+        "watchpoints는 앞으로 확인할 구체적인 항목 2~3개, caveat는 발표시점 차이와 모형의 한계를 담은 짧은 문장입니다. "
+        "상승이나 하락을 무조건 긍정/부정으로 판단하지 마세요. "
+        "GZ를 HY/CCC 전용 지표로 오인하지 말고, EBP가 음수여도 위험이 없다고 단정하지 마세요. "
+        "경기침체 추정 확률은 연준 공식 전망이 아닙니다. "
+        "지표 간 상충 신호와 불확실성을 명시하고, 개별 주식 매매를 지시하지 마세요. "
+        "제공되지 않은 뉴스나 외부 수치를 만들어내지 마세요. "
+        "필요 이상으로 장황하게 쓰지 말고 출처별 관측일이 다른 점을 분명히 하세요.\n"
         + json.dumps(facts, ensure_ascii=False)
     )
+    signal_schema = {
+        "type": "object",
+        "properties": {
+            "id": {"type": "string", "enum": list(IDS)},
+            "label": {"type": "string"},
+            "detail": {"type": "string"}
+        },
+        "required": ["id", "label", "detail"],
+        "additionalProperties": False
+    }
+    review_schema = {
+        "type": "object",
+        "properties": {
+            "headline": {"type": "string"},
+            "positives": {"type": "array", "items": signal_schema},
+            "cautions": {"type": "array", "items": signal_schema},
+            "watchpoints": {"type": "array", "items": {"type": "string"}},
+            "caveat": {"type": "string"}
+        },
+        "required": ["headline", "positives", "cautions", "watchpoints", "caveat"],
+        "additionalProperties": False
+    }
     request_body = json.dumps({
         "model": "gpt-4.1-mini", "instructions": "You are a careful macroeconomic analyst. Explain uncertainty; do not invent facts.",
-        "input": prompt, "max_output_tokens": 1100, "store": False
+        "input": prompt, "max_output_tokens": 1600, "store": False,
+        "text": {"format": {"type": "json_schema", "name": "macro_review",
+                            "strict": True, "schema": review_schema}}
     }, ensure_ascii=False).encode("utf-8")
     req = Request("https://api.openai.com/v1/responses", data=request_body, headers={
         "Authorization": "Bearer " + key,
@@ -84,14 +110,27 @@ def main():
         for content in item.get("content", []):
             if content.get("type") == "output_text":
                 paragraphs.append(content.get("text", "").strip())
-    summary = "\n".join(p for p in paragraphs if p)
-    if not summary or len(summary) < 80:
+    text_output = "\n".join(p for p in paragraphs if p)
+    if not text_output:
         raise RuntimeError("OpenAI returned no usable analysis")
+    review = json.loads(text_output)
+    if not review.get("headline") or len(review.get("positives", [])) < 2 or len(review.get("cautions", [])) < 2:
+        raise RuntimeError("Review sections are incomplete")
+    all_ids = [item.get("id") for item in review["positives"] + review["cautions"]]
+    if len(all_ids) != len(IDS) or set(all_ids) != set(IDS):
+        raise RuntimeError("Review must describe all six indicator IDs once")
+    summary = " ".join(
+        [review["headline"]]
+        + [p["label"] + ": " + p["detail"] for p in review["positives"] + review["cautions"]]
+        + review["watchpoints"] + [review["caveat"]]
+    )
     result = {
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),
         "source_data_generated_at": snapshot["generated_at"],
         "model": answer.get("model", "gpt-4.1-mini"),
         "summary": summary,
+        "review": review,
+        "review_format_version": 1,
         "indicators": [{"id": f["id"], "latest_date": f["latest_date"]} for f in facts]
     }
     OUT.write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
