@@ -263,11 +263,10 @@ function noteRow(e){
  const previous=threeMonthReference(e.series);
  const delta=latest&&previous?latest.value-previous.value:null;
  const deltaUnit=e.unit==='%'?'%p':e.unit==='%p'?'%p':'pt';
- const currentUnit=e.unit||'지수';
  const unit=deltaUnit==='pt'?'pt':'%p';
  const sign=delta===null?'':delta>0?'+':delta<0?'−':'';
  const arrow=delta===null?'—':delta>0?'↑':delta<0?'↓':'→';
- const valueText=latest?fixed(latest.value)+(latest.value<0?'':'')+(e.unit==='%'?'%':e.unit==='%p'?'%p':''):'—';
+ const valueText=latest?fixed(latest.value)+(e.unit==='%'?'%':e.unit==='%p'?'%p':''):'—';
  const deltaText=delta===null?'자료 부족':sign+fixed(Math.abs(delta))+' '+unit;
  const tone=latest&&delta!==null?signalTone(e.id,latest.value,delta):'neutral';
  const name=NOTE_LABELS[e.id]||e.title;
