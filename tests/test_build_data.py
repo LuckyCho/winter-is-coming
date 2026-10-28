@@ -21,6 +21,12 @@ class CollectorTest(unittest.TestCase):
         out=update_snapshot(obj, {"us_curve":[{"date":"2026-01-01","value":0.2}]}, "now")
         self.assertEqual(out["indicators"][1]["series"], [])
         self.assertEqual(out["indicators"][0]["series"][0]["value"], 0.2)
+    def test_treasury_yield_fallback(self):
+        from build_data import parse_treasury_csv
+        s = "Date,1 Mo,3 Mo,1 Yr,10 Yr\\n10/27/2026,3.2,3.1,3.0,3.87\\n"
+        self.assertEqual(parse_treasury_csv(s), [
+            {"date": "2026-10-27", "value": 0.77}])
+
     def test_invalid_oecd_csv(self):
         with self.assertRaises(ValueError):
             parse_oecd_csv("REF_AREA,OBS_VALUE\nUSA,102\n")
