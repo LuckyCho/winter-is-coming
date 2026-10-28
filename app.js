@@ -1,12 +1,7 @@
 'use strict';
 const DATA_PATH='./data/indicators.json';
-const FALLBACK_CONFIG=[
-{id:'us_curve',title:'미국 장단기 금리차',section:'US TREASURY',unit:'%p',kind:'series',source:'https://fred.stlouisfed.org/series/T10Y3M'},
-{id:'us_hy',title:'하이일드 신용스프레드',section:'US CREDIT',unit:'%p',kind:'external',source:'https://fred.stlouisfed.org/series/BAMLH0A0HYM2',embed:'https://fred.stlouisfed.org/graph/graph-landing.php?g=qZI0&width=670&height=330',attribution:'ICE Data Indices, LLC · BAMLH0A0HYM2 · via FRED'},
-{id:'us_ccc',title:'CCC 이하 신용스프레드',section:'US CREDIT',unit:'%p',kind:'external',source:'https://fred.stlouisfed.org/series/BAMLH0A3HYC',embed:'https://fred.stlouisfed.org/graph/graph-landing.php?g=pEuZ&width=670&height=330',attribution:'ICE Data Indices, LLC · BAMLH0A3HYC · via FRED'},
-{id:'us_cli',title:'미국 경기선행지수 (OECD CLI)',section:'US LEADING',unit:'',kind:'series',source:'https://data-explorer.oecd.org/'},
-{id:'kr_cli',title:'한국 경기선행지수 (OECD CLI)',section:'KR LEADING',unit:'',kind:'series',source:'https://data-explorer.oecd.org/'}];
-let state={years:3,entries:[],updated:null};
+const FALLBACK_CONFIG=[{"id":"us_curve","title":"미국 장단기 금리차 (10년-3개월)","section":"US TREASURY","unit":"%p","kind":"series","source":"https://home.treasury.gov/resource-center/data-chart-center/interest-rates","description":"미국 국채 10년물 금리에서 3개월물 금리를 뺀 값. 역전과 역전 해소 과정 모두 함께 관찰합니다."},{"id":"us_cli","title":"미국 경기선행지수 (OECD CLI)","section":"US LEADING","unit":"","kind":"series","source":"https://data-explorer.oecd.org/","description":"경기 전환의 방향을 보여주는 OECD 지표. 절대값보다 상승·하락 추세가 중요합니다."},{"id":"kr_cli","title":"한국 경기선행지수 (OECD CLI)","section":"KR LEADING","unit":"","kind":"series","source":"https://data-explorer.oecd.org/","description":"한국의 경기 전환 가능성을 보여주는 OECD 지표. 미국 지표와 함께 방향을 비교합니다."},{"id":"us_gz","title":"미국 회사채 신용스프레드 (GZ)","section":"US CREDIT","unit":"%p","kind":"series","source":"https://www.federalreserve.gov/econres/notes/feds-notes/ebp_csv.csv","description":"미국 비금융기업 회사채의 전반적인 신용위험. 상승은 자금조달 부담 확대 신호일 수 있습니다."},{"id":"us_ebp","title":"초과채권프리미엄 (EBP)","section":"US CREDIT","unit":"%p","kind":"series","source":"https://www.federalreserve.gov/econres/notes/feds-notes/ebp_csv.csv","description":"부도위험만으로 설명되지 않는 추가 채권 프리미엄. 상승하면 투자자의 신용위험 회피가 커질 수 있습니다."},{"id":"us_recession_prob","title":"향후 12개월 경기침체 모형 확률","section":"US RECESSION","unit":"%","kind":"series","source":"https://www.federalreserve.gov/econres/notes/feds-notes/ebp_csv.csv","description":"연준 연구모형의 추정 확률이며 연준의 공식 전망이나 확정적 경기침체 예측은 아닙니다."}];
+let state={years:3,entries:[],updated:null,ai:null};
 const el=id=>document.getElementById(id);
 const fixed=(v,n=2)=>Number.isFinite(v)?Number(v).toFixed(n):'—';
 const esc=s=>String(s??'').replace(/[&<>"']/g,x=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[x]));
@@ -31,64 +26,53 @@ function chart(points,unit){
  return `<svg class="svg-chart" viewBox="0 0 ${w} ${h}" role="img" aria-label="기간별 추이, 최근값 ${fixed(last.value)} ${esc(unit)}"><title>시계열 추이</title>${grid}${labels}<path class="svg-line" d="${path}"/><circle cx="${px(last)}" cy="${py(last)}" r="4" fill="#c9efd9"/></svg>`;
 }
 function badge(e){
- if(e.kind==='external')return ['FRED 공식 그래프','info'];
  if(!e.series?.length)return ['갱신 대기',''];
- if(e.id==='us_curve')return e.series.at(-1).value<0?['금리 역전','risk']:['정상 금리차','info'];
+ const v=e.series.at(-1).value;
+ if(e.id==='us_curve' && v<0)return ['금리 역전','risk'];
+ if(e.id==='us_curve')return ['금리차 양수','info'];
  if(e.series.length<4)return ['관측 중',''];
- return e.series.at(-1).value<e.series.at(-4).value?['3개월 하락','warn']:['3개월 상승·보합','info'];
-}
-function fredPlot(e){
- const url=e.embed||'';
- if(!url.startsWith('https://fred.stlouisfed.org/graph/graph-landing.php?g=')){
-   return '<div class="chart-empty">공식 FRED 그래프 설정을 확인하세요.</div>';
- }
- const attrib=e.attribution||'ICE Data Indices, LLC · via FRED';
- return `<div class="fred-embed-container">
- <iframe src="${esc(url)}" title="${esc(e.title)} — FRED 공식 차트" class="fred-iframe" width="670" height="330" loading="lazy" scrolling="no" referrerpolicy="strict-origin-when-cross-origin"></iframe>
- </div><p class="fred-credit">자료 원천: ${esc(attrib)}.</p>
- <p class="fred-legal">FRED® Graphs ©Federal Reserve Bank of St. Louis. All rights reserved. All FRED® Graphs appear courtesy of Federal Reserve Bank of St. Louis. <a href="https://fred.stlouisfed.org/" target="_blank" rel="noopener noreferrer">fred.stlouisfed.org</a></p>`;
+ const n=e.id==='us_gz'||e.id==='us_ebp'||e.id==='us_recession_prob'||e.id.endsWith('_cli')?3:63;
+ const previous=e.series[Math.max(0,e.series.length-1-n)].value;
+ return v>previous?['최근 상승','info']:v<previous?['최근 하락','warn']:['최근 보합',''];
 }
 function card(e){
- const external=e.kind==='external';
  const pts=range(e.series||[],state.years),last=e.series?.at(-1),first=pts[0];
- const diff=last&&first?last.value-first.value:null, [label,status]=badge(e);
- const plot=external?fredPlot(e):chart(pts,e.unit||'지수');
- const note=external?'FRED 원본 차트가 별도로 갱신됩니다. ICE 저작권 자료는 우리 서버에 저장하지 않습니다. FRED 제공 범위는 최근 3년입니다.':e.id==='us_curve'?'금리 역전과 역전 해소 과정 모두 확인합니다.':'OECD 선행지수는 값보다 추세 변화가 중요합니다.';
- const movement=diff===null?'':`선택 기간 변화 ${diff>=0?'+':''}${fixed(diff)} ${e.unit||'pt'}`;
- const date=last?`실제 관측일 ${esc(last.date)}`:external?'최신 관측일은 FRED 그래프에 표시':'첫 자동 수집 후 표시';
- const numberMarkup=external?'<span class="external-value">FRED 제공 차트</span>':`${last?fixed(last.value):'—'}<span class="unit">${last?esc(e.unit||'지수'):''}</span>`;
- return `<article class="signal-card"><div class="card-head"><div><div class="card-kicker">${esc(e.section)}</div><div class="card-title">${esc(e.title)}</div></div><span class="card-badge ${status}">${label}</span></div>
- <div class="card-value-row"><div class="card-value">${numberMarkup}</div><div class="card-change">${esc(movement)}</div></div>
- ${plot}<div class="card-note">${esc(note)}</div><div class="card-foot"><span class="card-date">${date}</span><a class="source-link" href="${esc(e.source)}" target="_blank" rel="noopener noreferrer">FRED 원본 보기 ↗</a></div></article>`;
+ const diff=last&&first?last.value-first.value:null,[label,status]=badge(e);
+ const movement=diff===null?'':('선택 기간 변화 '+(diff>=0?'+':'')+fixed(diff)+' '+(e.unit||'pt'));
+ const note=e.description||FALLBACK_CONFIG.find(x=>x.id===e.id)?.description||'시계열의 변화 방향을 확인하세요.';
+ const number=last?fixed(last.value):'—';
+ return '<article class="signal-card">'+
+   '<div class="card-head"><div><div class="card-kicker">'+esc(e.section)+'</div><div class="card-title">'+esc(e.title)+'</div></div><span class="card-badge '+status+'">'+esc(label)+'</span></div>'+
+   '<div class="card-value-row"><div class="card-value">'+number+'<span class="unit">'+(last?esc(e.unit||'지수'):'')+'</span></div><div class="card-change">'+esc(movement)+'</div></div>'+
+   chart(pts,e.unit||'지수')+'<div class="card-note">'+esc(note)+'</div>'+
+   '<div class="card-foot"><span class="card-date">'+(last?'실제 관측일 '+esc(last.date):'관측치 대기')+'</span><a class="source-link" href="'+esc(e.source)+'" target="_blank" rel="noopener noreferrer">원천 데이터 보기 ↗</a></div></article>';
 }
 function render(){
  el('cards').innerHTML=state.entries.map(card).join('');
- el('refreshText').textContent=state.updated?`데이터 생성 ${state.updated.replace('T',' ').slice(0,16)} UTC`:'첫 수집 대기';
- const populated=state.entries.filter(e=>e.kind==='series'&&e.series?.length);
- const curve=state.entries.find(e=>e.id==='us_curve'),clis=state.entries.filter(e=>e.id.endsWith('_cli')&&e.series?.length>=4);
- if(!populated.length){
-  el('outlookTitle').textContent='첫 갱신을 기다립니다';
-  el('outlookDetail').textContent='GitHub Actions가 데이터를 수집하면 화면이 채워집니다.';
-  el('outlookIcon').textContent='◌';
+ el('refreshText').textContent=state.updated?'데이터 갱신 '+state.updated.replace('T',' ').slice(0,16)+' UTC':'첫 수집 대기';
+ const available=state.entries.filter(e=>e.series?.length);
+ const ai=state.ai;
+ if(ai && ai.summary && available.length===6){
+   el('outlookTitle').textContent='AI 종합의견 · '+ai.generated_at.slice(0,10)+' 생성';
+   const stale=ai.source_data_generated_at!==state.updated;
+   el('outlookDetail').textContent=ai.summary+(stale?'\n\n※ 이 의견은 최초 생성 시점의 자료로 작성됐으며, 현재 수집된 최신 데이터는 반영되지 않았을 수 있습니다.':'');
+ }else if(available.length===6){
+   el('outlookTitle').textContent='6개 지표 수집 완료 · AI 분석 대기';
+   el('outlookDetail').textContent='원천 데이터 6개가 준비됐습니다. 첫 AI 종합의견이 생성되면 이 영역에 표시됩니다.';
  }else{
-  const inverted=curve?.series?.length&&curve.series.at(-1).value<0;
-  const falling=clis.filter(c=>c.series.at(-1).value<c.series.at(-4).value).length;
-  el('outlookTitle').textContent=inverted||falling>=2?'경계 신호 관찰':'경기 흐름 관찰 중';
-  el('outlookDetail').textContent='공개 수집 가능한 지표 중심의 부분 분석입니다. 신용시장 위험은 공식 자료에서 별도로 확인하세요.';
-  el('outlookIcon').textContent=inverted||falling>=2?'☁':'◒';
+   el('outlookTitle').textContent='수집 데이터 확인 중';
+   el('outlookDetail').textContent='현재 '+available.length+'/6개 지표가 있습니다. 원천 데이터가 모두 확보되면 종합의견을 표시합니다.';
  }
+ el('outlookIcon').textContent='◒';
  const notes=[];
- if(curve?.series?.length){
-  const v=curve.series.at(-1),old=curve.series[Math.max(0,curve.series.length-64)];
-  notes.push(`미국 장단기 금리차: ${fixed(v.value)}%p (${v.date}). 약 3개월 전 대비 ${v.value>=old.value?'+':''}${fixed(v.value-old.value)}%p.`);
+ for(const e of state.entries){
+   if(!e.series?.length){notes.push(e.title+': 데이터 수집 대기');continue;}
+   const last=e.series.at(-1),period=e.id==='us_curve'?63:3;
+   const prior=e.series[Math.max(0,e.series.length-1-period)];
+   const delta=last.value-prior.value;
+   notes.push(e.title+': '+fixed(last.value)+(e.unit||'')+' ('+last.date+'). 약 '+(period===63?'3개월':'3개월')+' 전 대비 '+(delta>=0?'+':'')+fixed(delta)+(e.unit||'pt')+'.');
  }
- for(const c of clis){
-  const v=c.series.at(-1),old=c.series.at(-4);
-  notes.push(`${c.title}: ${fixed(v.value)} (${v.date}). 최근 3개월 ${v.value<old.value?'하락':'상승 또는 보합'}.`);
- }
- notes.push('하이일드·CCC 스프레드는 ICE Data Indices, LLC 원천자료를 FRED 공식 그래프로 직접 표시합니다. 별도 수집·재배포하지 않으며, 자동 종합판단에는 아직 포함되지 않습니다.');
- if(!populated.length)notes.unshift('현재 표시할 관측치가 없습니다. 최초 자동 수집 이후 실제 값이 표시됩니다.');
- el('analysisNotes').innerHTML=notes.map(n=>`<div class="analysis-point">${esc(n)}</div>`).join('');
+ el('analysisNotes').innerHTML=notes.map(n=>'<div class="analysis-point">'+esc(n)+'</div>').join('');
 }
 function initRange(){
  document.querySelectorAll('[data-years]').forEach(b=>b.addEventListener('click',()=>{
@@ -103,6 +87,10 @@ async function main(){
   const r=await fetch(DATA_PATH,{cache:'no-store'});if(!r.ok)throw new Error('HTTP '+r.status);
   const data=await r.json();state.updated=data.generated_at||null;
   state.entries=(data.indicators||FALLBACK_CONFIG).map(e=>({...e,series:(e.series||[]).filter(p=>p.date&&Number.isFinite(p.value)).sort((a,b)=>a.date.localeCompare(b.date))}));
+   try {
+     const report=await fetch('./data/analysis.json',{cache:'no-store'});
+     if(report.ok)state.ai=await report.json();
+   }catch(err){console.warn('One-time AI review unavailable',err);}
  }catch(e){console.error('Data unavailable',e);state.entries=FALLBACK_CONFIG.map(e=>({...e,series:[]}));}
  render();
 }

@@ -9,3 +9,26 @@
 .fred-legal{font-size:9px;color:#90a6b7}
 .fred-legal a{color:#b8e5cb;text-decoration:underline}
 @media(max-width:700px){.fred-embed-container{height:300px}.fred-iframe{height:298px}.external-value{font-size:17px}}
+
+/* Compact six-signal dashboard: lead with the data, not the decorative headline */
+.topbar{height:58px}
+.brand{font-size:16px;letter-spacing:.6px}.brand-symbol{font-size:19px}
+.hero{display:block;padding:27px 0 10px}
+.hero-main{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}
+.hero h1{font-size:clamp(25px,3.2vw,36px);letter-spacing:-1.3px;line-height:1.12;margin:0 0 7px}
+.hero h1 span{color:var(--mint)}
+.hero .eyebrow{font-size:10px;margin:0 0 7px}
+.hero-desc{font-size:12px;line-height:1.5}
+.hero-meta{margin:0;gap:12px}.pill{padding:6px 10px;font-size:10px}
+.weather-card{min-height:0;padding:22px 27px;margin-top:19px;border-radius:13px;background:linear-gradient(110deg,#14283a,#142b30 65%,#13283a)}
+.weather-icon{display:none}.weather-title{font-size:20px;margin-top:10px}
+.weather-desc{font-size:14px;line-height:1.9;color:#d8e4ee;margin-top:11px;white-space:pre-wrap}
+.weather-footer{margin-top:15px;padding-top:11px}
+.section-header{padding:25px 0 18px}.section-header h2{font-size:23px}
+.cards{grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}
+.signal-card{padding:19px}.card-value-row{margin:18px 0 14px}.card-value{font-size:34px}.card-title{font-size:16px}
+.card-note{min-height:34px}
+.analysis-section,.source-section{margin:40px 0;gap:30px;padding:25px 0}
+.analysis-section h2,.source-section h2{font-size:22px}
+@media(min-width:1250px){.cards{grid-template-columns:repeat(3,minmax(0,1fr))}.svg-chart{height:152px}}
+@media(max-width:700px){.topbar{height:55px}.hero{padding-top:20px}.hero h1{font-size:28px;letter-spacing:-.8px}.hero-main{align-items:flex-start}.hero-meta{width:100%}.weather-card{margin-top:15px;padding:19px}.weather-title{font-size:18px}.weather-desc{font-size:13px}.section-header{padding:22px 0 14px}.cards{grid-template-columns:1fr}.card-note{min-height:0}}
