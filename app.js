@@ -11,19 +11,147 @@ function range(points,years){
  start.setUTCFullYear(start.getUTCFullYear()-years);
  return points.filter(p=>new Date(p.date+'T00:00:00Z')>=start);
 }
-function chart(points,unit){
+// Coordinates are in a 500px SVG viewBox, so axis labels stay readable even in three-column cards.
+const CHART_GEOMETRY={w:500,h:276,L:59,R:35,T:39,B:44};
+function chartMetrics(points){
+ const g=CHART_GEOMETRY;
+ const values=points.map(p=>p.value);
+ let lo=Math.min(...values), hi=Math.max(...values);
+ if(lo===hi){lo-=1;hi+=1;}
+ else{const pad=(hi-lo)*.13;lo-=pad;hi+=pad;}
+ const t0=Date.parse(points[0].date+'T00:00:00Z');
+ const t1=Date.parse(points.at(-1).date+'T00:00:00Z');
+ const px=p=>g.L+(Date.parse(p.date+'T00:00:00Z')-t0)/(t1-t0||1)*(g.w-g.L-g.R);
+ const py=p=>g.T+(hi-p.value)/(hi-lo)*(g.h-g.T-g.B);
+ return {...g,lo,hi,t0,t1,px,py};
+}
+function chart(points,unit,id){
  if(points.length<2)return '<div class="chart-empty">관측치가 2개 이상 쌓이면 추이 차트를 표시합니다.</div>';
- const w=590,h=190,L=49,R=16,T=17,B=28,vs=points.map(p=>p.value);
- let lo=Math.min(...vs),hi=Math.max(...vs);
- if(lo===hi){lo-=1;hi+=1}else{const d=(hi-lo)*.12;lo-=d;hi+=d}
- const t0=Date.parse(points[0].date+'T00:00:00Z'),t1=Date.parse(points.at(-1).date+'T00:00:00Z');
- const px=p=>L+(Date.parse(p.date+'T00:00:00Z')-t0)/(t1-t0||1)*(w-L-R);
- const py=p=>T+(hi-p.value)/(hi-lo)*(h-T-B);
- const path=points.map((p,i)=>`${i?'L':'M'}${px(p).toFixed(2)},${py(p).toFixed(2)}`).join(' ');
- const grid=[0,1,2,3].map(i=>{const y=T+i*(h-T-B)/3;return `<line class="svg-grid" x1="${L}" y1="${y}" x2="${w-R}" y2="${y}"/><text class="svg-label" x="${L-7}" y="${y+3}" text-anchor="end">${fixed(hi-i*(hi-lo)/3,1)}</text>`}).join('');
- const labels=[0,.5,1].map(r=>{const d=new Date(t0+(t1-t0)*r);return `<text class="svg-label" x="${L+r*(w-L-R)}" y="${h-5}" text-anchor="middle">${d.getUTCFullYear()}.${String(d.getUTCMonth()+1).padStart(2,'0')}</text>`}).join('');
- const last=points.at(-1);
- return `<svg class="svg-chart" viewBox="0 0 ${w} ${h}" role="img" aria-label="기간별 추이, 최근값 ${fixed(last.value)} ${esc(unit)}"><title>시계열 추이</title>${grid}${labels}<path class="svg-line" d="${path}"/><circle cx="${px(last)}" cy="${py(last)}" r="4" fill="#c9efd9"/></svg>`;
+ const g=chartMetrics(points);
+ const axisDigits=(g.hi-g.lo)<3?2:1;
+ const xText=date=>date.slice(2,7).replace('-','.');
+ const grid=Array.from({length:5},(_,i)=>{
+   const y=g.T+i*(g.h-g.T-g.B)/4;
+   const v=g.hi-i*(g.hi-g.lo)/4;
+   return '<line class="svg-grid" x1="'+g.L+'" y1="'+y.toFixed(1)+'" x2="'+(g.w-g.R)+'" y2="'+y.toFixed(1)+'"/>'+
+     '<text class="svg-axis-label" x="'+(g.L-11)+'" y="'+(y+5)+'" text-anchor="end">'+fixed(v,axisDigits)+'</text>';
+ }).join('');
+ const xLabels=[0,.5,1].map((r,i)=>{
+   const d=new Date(g.t0+(g.t1-g.t0)*r).toISOString().slice(0,10);
+   return '<text class="svg-axis-label" x="'+(g.L+r*(g.w-g.L-g.R)).toFixed(1)+'" y="'+(g.h-7)+
+     '" text-anchor="'+(['start','middle','end'][i])+'">'+xText(d)+'</text>';
+ }).join('');
+ const line=points.map((p,i)=>(i?'L':'M')+g.px(p).toFixed(2)+','+g.py(p).toFixed(2)).join(' ');
+ const stride=Math.max(1,Math.ceil((points.length-1)/20));
+ const dots=[];
+ for(let i=0;i<points.length;i+=stride)dots.push(i);
+ if(dots.at(-1)!==points.length-1)dots.push(points.length-1);
+ const markers=dots.map(i=>{
+   const p=points[i],latest=i===points.length-1;
+   return '<circle class="svg-observation'+(latest?' latest':'')+'" cx="'+g.px(p).toFixed(2)+
+     '" cy="'+g.py(p).toFixed(2)+'" r="'+(latest?6:4.1)+'"/>';
+ }).join('');
+ // Label a small number of useful actual observations. Never crowd the line.
+ let maxIdx=0,minIdx=0;
+ for(let i=1;i<points.length;i++){
+   if(points[i].value>points[maxIdx].value)maxIdx=i;
+   if(points[i].value<points[minIdx].value)minIdx=i;
+ }
+ const indices=[0,points.length-1];
+ for(const index of [maxIdx,minIdx]){
+   if(!indices.includes(index)&&indices.every(k=>Math.abs(g.px(points[k])-g.px(points[index]))>92))indices.push(index);
+ }
+ const valueLabels=indices.map(index=>{
+   const p=points[index],x=g.px(p),y=g.py(p),last=index===points.length-1;
+   const yy=y<g.T+29?y+26:y-15;
+   const anchor=index===0?'start':last?'end':'middle';
+   const labelX=index===0?x+6:last?x-7:x;
+   return '<text class="svg-value-label'+(last?' latest':'')+'" x="'+labelX.toFixed(1)+
+     '" y="'+yy.toFixed(1)+'" text-anchor="'+anchor+'">'+fixed(p.value,2)+'</text>';
+ }).join('');
+ const latest=points.at(-1);
+ return '<div class="chart-legend"><span class="chart-key" aria-hidden="true"></span>'+
+   '실제 관측값 · 마우스를 올리면 상세 수치</div>'+
+   '<div class="chart-plot" data-indicator="'+esc(id)+'" tabindex="0" '+
+   'aria-label="'+esc(id)+' 추이 그래프. 마우스 또는 터치로 관측일과 값을 확인합니다. 키보드 방향키도 사용할 수 있습니다.">'+
+   '<div class="chart-viewport"><svg class="svg-chart" viewBox="0 0 '+g.w+' '+g.h+
+   '" role="img" aria-label="'+esc(points[0].date)+'부터 '+esc(latest.date)+'까지 관측값의 꺾은선 그래프">'+
+   '<title>관측값을 연결한 꺾은선, 최근값 '+fixed(latest.value,2)+' '+esc(unit)+'</title>'+
+   grid+xLabels+'<path class="svg-line" d="'+line+'"/>'+markers+valueLabels+
+   '<line class="svg-tracker" x1="0" x2="0" y1="'+g.T+'" y2="'+(g.h-g.B)+'" visibility="hidden"/>'+
+   '<circle class="svg-tracker-dot" cx="0" cy="0" r="7" visibility="hidden"/></svg></div>'+
+   '<div class="chart-tooltip" role="tooltip" hidden><span class="chart-tooltip-date"></span>'+
+   '<strong class="chart-tooltip-number"></strong><span class="chart-tooltip-source">실제 관측값</span></div></div>';
+}
+function wireChartInteractions(){
+ document.querySelectorAll('.chart-plot[data-indicator]').forEach(plot=>{
+   const source=state.entries.find(e=>e.id===plot.dataset.indicator);
+   if(!source)return;
+   const points=range(source.series||[],state.years);
+   if(points.length<2)return;
+   const g=chartMetrics(points);
+   const timestamps=points.map(p=>Date.parse(p.date+'T00:00:00Z'));
+   const svg=plot.querySelector('.svg-chart'),tip=plot.querySelector('.chart-tooltip');
+   const viewport=plot.querySelector('.chart-viewport');
+   const line=plot.querySelector('.svg-tracker'),dot=plot.querySelector('.svg-tracker-dot');
+   let selected=points.length-1,pinned=false;
+   function nearest(t){
+     let lo=0,hi=timestamps.length-1;
+     while(lo<hi){
+       const mid=(lo+hi)>>1;
+       if(timestamps[mid]<t)lo=mid+1;else hi=mid;
+     }
+     return lo>0&&Math.abs(t-timestamps[lo-1])<Math.abs(timestamps[lo]-t)?lo-1:lo;
+   }
+   function show(index){
+     selected=Math.max(0,Math.min(points.length-1,index));
+     const p=points[selected],x=g.px(p),y=g.py(p);
+     line.setAttribute('x1',x);line.setAttribute('x2',x);line.setAttribute('visibility','visible');
+     dot.setAttribute('cx',x);dot.setAttribute('cy',y);dot.setAttribute('visibility','visible');
+     tip.querySelector('.chart-tooltip-date').textContent=p.date;
+     tip.querySelector('.chart-tooltip-number').textContent=Number(p.value).toLocaleString('ko-KR',{maximumFractionDigits:5})+' '+(source.unit||'지수');
+     tip.hidden=false;
+     const svgRect=svg.getBoundingClientRect(),plotRect=plot.getBoundingClientRect();
+     const screenX=svgRect.left-plotRect.left+x/svg.viewBox.baseVal.width*svgRect.width;
+     const screenY=svgRect.top-plotRect.top+y/svg.viewBox.baseVal.height*svgRect.height;
+     const tipWidth=tip.offsetWidth,tipHeight=tip.offsetHeight;
+     const left=Math.max(3,Math.min(plot.clientWidth-tipWidth-3,screenX-tipWidth/2));
+     const above=screenY-tipHeight-15;
+     tip.style.left=left+'px';
+     tip.style.top=(above>=2?above:screenY+15)+'px';
+   }
+   function hide(){
+     if(pinned)return;
+     tip.hidden=true;
+     line.setAttribute('visibility','hidden');dot.setAttribute('visibility','hidden');
+   }
+   function eventIndex(event){
+     const b=svg.getBoundingClientRect();
+     const x=(event.clientX-b.left)/b.width*g.w;
+     const date=g.t0+(Math.max(g.L,Math.min(g.w-g.R,x))-g.L)/(g.w-g.L-g.R)*(g.t1-g.t0);
+     return nearest(date);
+   }
+   viewport.addEventListener('pointermove',event=>{
+     if(event.pointerType==='touch'||pinned)return;
+     show(eventIndex(event));
+   });
+   viewport.addEventListener('pointerleave',hide);
+   viewport.addEventListener('click',event=>{
+     const at=eventIndex(event);
+     if(pinned&&selected===at){pinned=false;hide();return;}
+     pinned=true;show(at);
+   });
+   plot.addEventListener('keydown',event=>{
+     if(event.key==='Escape'){pinned=false;hide();return;}
+     if(event.key==='ArrowLeft'||event.key==='ArrowRight'){
+       event.preventDefault();pinned=true;
+       show(selected+(event.key==='ArrowLeft'?-1:1));
+     }
+   });
+   plot.addEventListener('blur',()=>{
+     pinned=false;hide();
+   });
+ });
 }
 function badge(e){
  if(!e.series?.length)return ['갱신 대기',''];
@@ -44,7 +172,7 @@ function card(e){
  return '<article class="signal-card">'+
    '<div class="card-head"><div><div class="card-kicker">'+esc(e.section)+'</div><div class="card-title">'+helpTerm(e.title,e.id,'chart')+'</div></div><span class="card-badge '+status+'">'+esc(label)+'</span></div>'+
    '<div class="card-value-row"><div class="card-value">'+number+'<span class="unit">'+(last?esc(e.unit||'지수'):'')+'</span></div><div class="card-change">'+esc(movement)+'</div></div>'+
-   chart(pts,e.unit||'지수')+'<div class="card-note">'+esc(note)+'</div>'+
+   chart(pts,e.unit||'지수',e.id)+'<div class="card-note">'+esc(note)+'</div>'+
    '<div class="card-foot"><span class="card-date">'+(last?'실제 관측일 '+esc(last.date):'관측치 대기')+'</span><a class="source-link" href="'+esc(e.source)+'" target="_blank" rel="noopener noreferrer">원천 데이터 보기 ↗</a></div></article>';
 }
 const INDICATOR_HELP={
@@ -104,6 +232,7 @@ function renderReview(review,stale){
 
 function render(){
  el('cards').innerHTML=state.entries.map(card).join('');
+ wireChartInteractions();
  el('refreshText').textContent=state.updated?'데이터 갱신 '+state.updated.replace('T',' ').slice(0,16)+' UTC':'첫 수집 대기';
  const available=state.entries.filter(e=>e.series?.length);
  const ai=state.ai;
