@@ -1,0 +1,35 @@
+'use strict';
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const vm=require('node:vm');
+const source=fs.readFileSync('app.js','utf8');
+const sanitized=source.replace(/\bmain\(\);\s*$/,'');
+const context={console,Date,Math,Number,Intl};
+vm.runInNewContext(sanitized+'\n globalThis.chartTest={chart,chartMetrics,range};',context);
+const {chart,chartMetrics,range}=context.chartTest;
+assert.equal(typeof chart,'function');
+const months=Array.from({length:12},(_,i)=>({date:'2025-'+String(i+1).padStart(2,'0')+'-01',value:99.4+i*.31+(i===10?.4:0)}));
+const svg=chart(months,'지수','kr_cli');
+assert.ok(svg.includes('chart-tooltip'), 'interactive tooltip missing');
+assert.ok(svg.includes('svg-value-label'), 'inline values missing');
+assert.ok(svg.includes('svg-line'), 'joined line missing');
+assert.ok(svg.includes('svg-axis-label'), 'enlarged axis labels missing');
+assert.ok(svg.includes('data-indicator="kr_cli"'), 'data ID missing');
+assert.equal((svg.match(/class="svg-observation(?: latest)?"/g)||[]).length,12,'should mark each of 12 months');
+assert.ok(svg.includes('2025'), 'full dates must be available');
+const g=chartMetrics(months);
+assert.ok(g.px(months[0])===g.L);
+assert.ok(Math.abs(g.px(months.at(-1))-(g.w-g.R))<1e-8);
+assert.ok(months.every(p=>Number.isFinite(g.py(p)) && g.py(p)>g.T && g.py(p)<g.h-g.B));
+const daily=Array.from({length:2600},(_,i)=>({date:new Date(Date.UTC(2019,0,i+1)).toISOString().slice(0,10),value:Math.sin(i/80)+i/600}));
+const dailySvg=chart(daily,'%p','us_curve');
+const dots=(dailySvg.match(/class="svg-observation(?: latest)?"/g)||[]).length;
+assert.ok(dots>2 && dots<=22,'dense daily data should not create thousands of dots: '+dots);
+assert.ok(dailySvg.includes('svg-tracker-dot'),'interactive selection marker missing');
+for(const id of ['us_curve','us_cli','kr_cli','us_gz','us_ebp','us_recession_prob']){
+ const result=chart(months,id.endsWith('cli')?'지수':'%p',id);
+ assert.ok(result.includes('data-indicator="'+id+'"'));
+}
+const constant=chartMetrics(Array.from({length:12},(_,i)=>({date:'2025-'+String(i+1).padStart(2,'0')+'-01',value:-0.2})));
+assert.ok(constant.hi>constant.lo,'flat series should be plotable');
+console.log('PASS: all six chart cards, legible axes, full SVG lines, capped markers and interactive tooltip');
