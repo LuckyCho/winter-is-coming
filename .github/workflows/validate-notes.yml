@@ -1,0 +1,23 @@
+name: Validate observation table
+on:
+  push:
+    branches: [feature/readable-indicator-notes-20261028]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  validation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify JavaScript and table tests
+        run: |
+          node --check app.js
+          node tests/chart.test.cjs
+          node tests/notes.test.cjs
+      - name: Verify existing data parsers
+        run: python -m unittest discover -s tests -v
