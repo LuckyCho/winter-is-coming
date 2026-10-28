@@ -29,6 +29,8 @@ jobs:
         run: node --check app.js
       - name: Test interactive charts
         run: node tests/chart.test.cjs
+      - name: Test observation summary table
+        run: node tests/notes.test.cjs
       - name: Test parsers
         run: python -m unittest discover -s tests -v
       - name: Refresh public data snapshot
