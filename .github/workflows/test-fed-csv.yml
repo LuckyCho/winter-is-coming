@@ -1,0 +1,101 @@
+name: Test Federal Reserve credit spread CSV
+
+on:
+  push:
+    branches:
+      - test/fed-csv-20261028
+    paths:
+      - .github/workflows/test-fed-csv.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  download-and-validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Download, parse, and report Federal Reserve CSV
+        shell: bash
+        run: |
+          python - <<'PY'
+          import csv
+          import datetime as dt
+          import io
+          import math
+          import urllib.request
+
+          url = "https://www.federalreserve.gov/econres/notes/feds-notes/ebp_csv.csv"
+          req = urllib.request.Request(
+              url,
+              headers={"User-Agent": "Mozilla/5.0 (compatible; WinterIsComingDataCheck/1.0)", "Accept": "text/csv,*/*"}
+          )
+          print("Source:", url, flush=True)
+          with urllib.request.urlopen(req, timeout=35) as resp:
+              body = resp.read(10_000_000)
+              print("HTTP status:", resp.status, flush=True)
+              print("Content-Type:", resp.headers.get("Content-Type"), flush=True)
+              print("Downloaded bytes:", len(body), flush=True)
+
+          if not body or len(body) >= 10_000_000:
+              raise AssertionError("Empty or unexpectedly large CSV")
+
+          content = body.decode("utf-8-sig")
+          lines = list(csv.reader(io.StringIO(content)))
+          print("CSV first rows:", [r[:5] for r in lines[:4]], flush=True)
+          headers = ["date", "gz_spread", "ebp", "est_prob"]
+          header_index = None
+          normalized = None
+          for i, row in enumerate(lines[:30]):
+              maybe = [v.strip().strip('"').lower() for v in row]
+              if all(k in maybe for k in headers):
+                  header_index, normalized = i, maybe
+                  break
+          if header_index is None:
+              raise AssertionError("Expected columns not found: " + ", ".join(headers))
+
+          positions = {col: normalized.index(col) for col in headers}
+          parsed = []
+          for row in lines[header_index + 1:]:
+              if len(row) < len(normalized):
+                  continue
+              date_text = row[positions["date"]].strip()
+              if not date_text:
+                  continue
+              parsed_date = None
+              for fmt in ("%Y-%m-%d", "%Y-%m", "%Y%m", "%m/%d/%Y", "%Y/%m/%d", "%b-%Y", "%b-%y"):
+                  try:
+                      parsed_date = dt.datetime.strptime(date_text, fmt).date()
+                      break
+                  except ValueError:
+                      pass
+              if parsed_date is None:
+                  raise AssertionError("Unrecognized date format: " + repr(date_text))
+              result = {"date": parsed_date.isoformat()}
+              for key in headers[1:]:
+                  val = row[positions[key]].strip()
+                  try:
+                      number = float(val)
+                      result[key] = number if math.isfinite(number) else None
+                  except ValueError:
+                      result[key] = None
+              parsed.append(result)
+
+          if len(parsed) < 24:
+              raise AssertionError("Too few valid dated observations: " + str(len(parsed)))
+          parsed.sort(key=lambda r: r["date"])
+          print("Columns:", headers)
+          print("Dated observations:", len(parsed))
+          print("First date:", parsed[0]["date"])
+          print("Latest date:", parsed[-1]["date"])
+          for col in headers[1:]:
+              valid = [r for r in parsed if r[col] is not None]
+              if len(valid) < 24:
+                  raise AssertionError("Too few numeric rows in " + col)
+              print(col, "numeric rows:", len(valid), "latest:", valid[-1])
+          print("Last 3 dated records:")
+          for rec in parsed[-3:]:
+              print(rec)
+          print("RESULT: DOWNLOAD_AND_PARSE_OK")
+          PY
