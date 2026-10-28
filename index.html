@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#0b1220" />
-  <meta name="description" content="경제의 겨울이 다가오는가? 미국 장단기 금리차와 미국·한국 경기선행지수를 매일 살펴보는 경제 위험 대시보드." />
+  <meta name="description" content="미국 장단기 금리차, 경기선행지수, GZ·EBP 신용위험, 12개월 경기침체 모형 확률을 살펴보는 6개 지표 경제 위험 대시보드." />
   <title>Winter Is Coming? | Economic Early Warning</title>
   <link rel="stylesheet" href="./styles.css" />
   <script defer src="./app.js"></script>
@@ -22,31 +22,25 @@
     <main>
       <section class="hero">
         <div class="hero-main">
-          <p class="eyebrow">THE ECONOMIC WEATHER REPORT <span class="small-line"></span> MACRO DASHBOARD</p>
-          <h1>Winter is <span>coming?</span></h1>
-          <p class="hero-desc">경제의 겨울은 언제나 갑작스럽게 느껴집니다.<br class="only-desktop" /> 하지만 그 전에 나타나는 신호들은 관찰할 수 있습니다.</p>
+          <div>
+            <p class="eyebrow">MACRO EARLY WARNING / SIX SIGNALS</p>
+            <h1>Winter Is Coming<span>?</span></h1>
+            <p class="hero-desc">금리 · 신용위험 · 미국·한국 경기선행지수 · 경기침체 모형 확률</p>
+          </div>
           <div class="hero-meta">
-            <span class="pill"><span class="live-dot"></span> 자동 갱신</span>
-            <span id="refreshText" class="mono">데이터 업데이트 확인 중...</span>
+            <span class="pill"><span class="live-dot"></span> 매일 데이터 확인</span>
+            <span id="refreshText" class="mono">수집 기록 확인 중</span>
           </div>
         </div>
         <div class="weather-card" aria-live="polite">
-          <div class="weather-label">CURRENT OUTLOOK / 경기 위험 개요</div>
-          <div class="weather-icon" id="outlookIcon" aria-hidden="true">◌</div>
-          <div class="weather-title" id="outlookTitle">데이터 점검 중</div>
-          <div class="weather-desc" id="outlookDetail">데이터 갱신 상태를 확인하고 있습니다.</div>
-          <div class="weather-footer">예측이 아닌 관측 · 정량적 투자 권고 아님</div>
+          <div class="weather-label">SIX-INDICATOR SYNTHESIS / 종합 위험 의견</div>
+          <div id="outlookIcon" class="weather-icon" aria-hidden="true">◒</div>
+          <div class="weather-title" id="outlookTitle">지표를 읽고 있습니다</div>
+          <div class="weather-desc" id="outlookDetail">6개 원천 데이터와 분석 기준일을 확인 중입니다.</div>
+          <div class="weather-footer">분석 생성일과 개별 데이터 관측일은 다를 수 있습니다 · 정보 제공 목적</div>
         </div>
       </section>
 
-      <section class="intro-strip" aria-label="분석 방법">
-        <span class="step"><span class="step-no">01</span> 지표 수집</span>
-        <span class="step-divider">/</span>
-        <span class="step"><span class="step-no">02</span> 장기 추이 확인</span>
-        <span class="step-divider">/</span>
-        <span class="step"><span class="step-no">03</span> 변화 방향 비교</span>
-        <span class="strip-note">판단은 사람의 몫입니다.</span>
-      </section>
 
       <div class="section-header" id="signals">
         <div>
@@ -68,7 +62,7 @@
       <section class="analysis-section" id="analysis">
         <div>
           <p class="eyebrow">INTERPRETATION</p>
-          <h2>오늘의 관찰 노트</h2>
+          <h2>지표별 관찰 노트</h2>
           <p class="analysis-desc">숫자를 예언으로 바꾸지 않습니다. 여러 지표의 방향을 구분하여 보여줍니다.</p>
         </div>
         <div class="analysis-panel">
@@ -83,9 +77,9 @@
           <h2>데이터를 어떻게 다루나요?</h2>
         </div>
         <div class="source-copy">
-          <p>GitHub Actions가 매일 FRED·미국 재무부 및 OECD의 공개 데이터를 확인하고, 수집 성공 시 JSON을 갱신합니다. 일반 지표 차트는 방문 시 저장된 JSON을 읽습니다.</p>
-          <p>하이일드·CCC 이하 신용스프레드는 ICE Data Indices, LLC 자료를 FRED의 <strong>공식 삽입 그래프</strong>로 표시합니다. 이 차트는 방문 시 FRED에서 직접 불러오며 저작권 보호 시계열을 GitHub에 재배포하지 않습니다. FRED에서 제공하는 최근 3년 자료만 표시되므로 상단의 1·3·5·10년 선택과 별도로 동작합니다.</p>
-          <p>미국 선행지수는 OECD CLI이며 Conference Board의 LEI와 다른 지표입니다. 본 페이지는 비상업적 정보 관찰용입니다.</p>
+          <p>GitHub Actions가 매일 미국 재무부/FRED·OECD·미국 연방준비제도 이사회 데이터를 확인하고, 수집 성공 시 JSON을 갱신합니다. 일반 지표 차트는 방문 시 저장된 JSON을 읽습니다.</p>
+          <p>신용위험 지표인 GZ 스프레드와 EBP, 경기침체 모형 확률은 미국 연방준비제도 이사회 공개 CSV에서 수집합니다. 6개 시계열만 직접 저장하고, ICE BofA의 제한된 하이일드·CCC 시계열은 제외했습니다.</p>
+          <p>미국 선행지수는 OECD CLI이며 Conference Board의 LEI가 아닙니다. 12개월 경기침체 확률은 연준 연구모형의 산출값이며 연준의 공식 전망이 아닙니다. AI 종합의견은 최초 1회 생성한 시점의 자료에 한정되며 매일 자동 재생성하지 않습니다.</p>
           <p>갱신 실패 시 이전 데이터가 남을 수 있으므로 <strong>사이트 갱신일과 각 지표의 실제 관측일</strong>을 모두 표시합니다.</p>
         </div>
       </section>
@@ -93,7 +87,7 @@
 
     <footer>
       <div class="footer-title">WINTER IS COMING<span>?</span></div>
-      <span>Data: US Treasury / OECD · ICE Data Indices, LLC via FRED · 비상업적 관찰</span>
+      <span>Data: US Treasury / OECD / Federal Reserve Board · 정보 제공</span>
       <span>Made for better questions, not certain predictions.</span>
     </footer>
   </div>
