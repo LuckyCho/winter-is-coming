@@ -107,3 +107,57 @@
  .svg-chart{min-width:435px}
  .chart-tooltip{font-size:12px;max-width:190px}
 }
+
+/* Scannable six-indicator observation table */
+.analysis-panel{padding:24px 30px;min-width:0}
+.metrics-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 0 18px}
+.metrics-heading h3{margin:0 0 5px;font-size:18px;letter-spacing:-.3px;color:#f1f7fa}
+.metrics-heading p{margin:0;font-size:12px;color:#afc2d2}
+.metrics-count{font-size:11px;color:#95afbe;white-space:nowrap}
+.metrics-table{width:100%;border-collapse:collapse;table-layout:fixed;font-variant-numeric:tabular-nums}
+.metrics-table th{padding:12px 8px 13px;border-bottom:1px solid #466078;font-size:12px;font-weight:700;text-align:right;color:#a9c1d1}
+.metrics-table th:first-child{width:46%;text-align:left;padding-left:0}
+.metrics-table th:nth-child(2){width:24%}
+.metrics-table th:nth-child(3){width:30%}
+.metrics-table td{padding:17px 8px;vertical-align:middle;border-bottom:1px solid #304255}
+.metrics-table tbody tr:last-child td{border-bottom:0}
+.metrics-table td:first-child{padding-left:0}
+.metric-row:hover,.metric-row:focus-within{position:relative;z-index:6}
+.metric-name{color:#edf5f9;font-size:14px;font-weight:750;line-height:1.6}
+.metric-date{margin-top:4px;font-size:11px;color:#97adbf;letter-spacing:.15px}
+.metrics-table .indicator-name{font-size:inherit;font-weight:inherit;line-height:inherit}
+.metric-value{text-align:right;white-space:nowrap;color:#f0f6fb}
+.metric-value strong{font-size:20px;font-weight:800;letter-spacing:-.45px}
+.metric-unit{font-size:12px;font-weight:500;color:#a6bbca}
+.metric-change{text-align:right;white-space:nowrap;font-size:14px}
+.metric-change-value{font-weight:750}
+.metric-arrow{font-size:15px;margin-right:2px;font-weight:800}
+.metric-change-value.positive{color:#9fdfbf}
+.metric-change-value.caution{color:#f1c486}
+.metric-change-value.neutral{color:#d5dee9}
+.metrics-explain{font-size:11px;line-height:1.8;margin:18px 0 0;color:#9bb0c0}
+.metrics-explain strong{color:#c6d6df;font-weight:650}
+.analysis-panel .disclaimer{margin-top:17px}
+@media(max-width:1000px){
+ .analysis-section{grid-template-columns:220px minmax(0,1fr);gap:25px}
+ .analysis-panel{padding:20px}
+ .metrics-table th:first-child{width:44%}
+ .metrics-table th:nth-child(2){width:26%}
+ .metric-value strong{font-size:18px}
+ .metric-change{font-size:13px}
+}
+@media(max-width:720px){
+ .analysis-section{display:block}
+ .analysis-panel{margin-top:16px;padding:18px}
+ .metrics-table,.metrics-table tbody{display:block;width:100%}
+ .metrics-table thead{display:none}
+ .metrics-table tbody tr.metric-row{display:grid;grid-template-columns:1fr 1fr;gap:7px 12px;padding:16px 0;border-bottom:1px solid #304255}
+ .metrics-table tbody tr.metric-row:last-child{border-bottom:0}
+ .metrics-table td{border:0!important;padding:0!important}
+ .metric-name-col{grid-column:1/-1}
+ .metric-value,.metric-change{text-align:left}
+ .metric-value::before,.metric-change::before{content:attr(data-label);display:block;font-size:11px;color:#8ea5b8;margin-bottom:4px}
+ .metric-value strong{font-size:20px}
+ .metric-change{font-size:14px;align-self:end}
+ .metrics-explain{margin-top:13px}
+}

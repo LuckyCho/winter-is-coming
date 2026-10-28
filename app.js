@@ -230,6 +230,64 @@ function renderReview(review,stale){
  (stale?'<p class="review-stale">※ 이 의견이 작성된 이후 일부 지표의 관측일이 달라졌습니다. 최신 차트를 따로 확인하세요.</p>':'');
 }
 
+const NOTE_LABELS={
+  us_curve:'미국 장단기 금리차',
+  us_cli:'미국 경기선행지수',
+  kr_cli:'한국 경기선행지수',
+  us_gz:'미국 회사채 신용스프레드 (GZ)',
+  us_ebp:'초과채권프리미엄 (EBP)',
+  us_recession_prob:'12개월 경기침체 모형 확률'
+};
+function threeMonthReference(series){
+ if(!series||series.length<2)return null;
+ const latest=series.at(-1);
+ const end=new Date(latest.date+'T00:00:00Z');
+ if(!Number.isFinite(end.valueOf()))return null;
+ const firstDay=new Date(Date.UTC(end.getUTCFullYear(),end.getUTCMonth()-3,1));
+ const daysInMonth=new Date(Date.UTC(firstDay.getUTCFullYear(),firstDay.getUTCMonth()+1,0)).getUTCDate();
+ const previousDay=new Date(Date.UTC(firstDay.getUTCFullYear(),firstDay.getUTCMonth(),Math.min(end.getUTCDate(),daysInMonth))).toISOString().slice(0,10);
+ for(let i=series.length-1;i>=0;i--){
+   if(series[i].date<=previousDay)return series[i];
+ }
+ return null;
+}
+function signalTone(id,latest,delta){
+ if(!Number.isFinite(delta)||Math.abs(delta)<0.000001)return 'neutral';
+ if(id==='us_curve')return latest<0?'caution':'neutral';
+ if(id==='us_gz'||id==='us_ebp'||id==='us_recession_prob')return delta<0?'positive':'caution';
+ if(id==='us_cli'||id==='kr_cli')return delta>0?'positive':'caution';
+ return 'neutral';
+}
+function noteRow(e){
+ const latest=e.series?.at(-1);
+ const previous=threeMonthReference(e.series);
+ const delta=latest&&previous?latest.value-previous.value:null;
+ const deltaUnit=e.unit==='%'?'%p':e.unit==='%p'?'%p':'pt';
+ const unit=deltaUnit==='pt'?'pt':'%p';
+ const sign=delta===null?'':delta>0?'+':delta<0?'−':'';
+ const arrow=delta===null?'—':delta>0?'↑':delta<0?'↓':'→';
+ const valueText=latest?fixed(latest.value)+(e.unit==='%'?'%':e.unit==='%p'?'%p':''):'—';
+ const deltaText=delta===null?'자료 부족':sign+fixed(Math.abs(delta))+' '+unit;
+ const tone=latest&&delta!==null?signalTone(e.id,latest.value,delta):'neutral';
+ const name=NOTE_LABELS[e.id]||e.title;
+ return '<tr class="metric-row">'+
+   '<td class="metric-name-col"><div class="metric-name">'+helpTerm(name,e.id,'note')+'</div>'+
+   '<div class="metric-date">'+(latest?esc(latest.date.replaceAll('-','.')):'관측치 대기')+'</div></td>'+
+   '<td class="metric-value" data-label="최신값"><strong>'+esc(valueText)+'</strong>'+
+   (e.unit===''&&latest?'<span class="metric-unit"> 지수</span>':'')+'</td>'+
+   '<td class="metric-change" data-label="3개월 변화"><span class="metric-change-value '+tone+'">'+
+   '<span class="metric-arrow" aria-hidden="true">'+arrow+'</span> '+esc(deltaText)+'</span></td></tr>';
+}
+function renderIndicatorNotes(entries){
+ const rows=entries.map(noteRow).join('');
+ return '<div class="metrics-heading"><div><h3>지표별 관찰 노트</h3>'+
+   '<p>최신 관측값과 최근 3개월 변화</p></div><span class="metrics-count">'+entries.length+'개 지표</span></div>'+
+   '<table class="metrics-table"><thead><tr><th scope="col">지표</th>'+
+   '<th scope="col">최신값</th><th scope="col">3개월 변화</th></tr></thead><tbody>'+rows+'</tbody></table>'+
+   '<p class="metrics-explain">* 색상은 상승·하락 자체가 아니라 <strong>경기위험 관점의 해석</strong>입니다. '+
+   '금리차 변화는 단독으로 판단하지 않아 중립색으로 표시합니다. 각 지표의 발표 주기와 관측일은 다릅니다.</p>';
+}
+
 function render(){
  el('cards').innerHTML=state.entries.map(card).join('');
  wireChartInteractions();
@@ -253,15 +311,7 @@ function render(){
    el('outlookDetail').textContent='현재 '+available.length+'/6개 지표가 있습니다. 원천 데이터가 모두 확보되면 종합의견을 표시합니다.';
  }
  el('outlookIcon').textContent='◒';
- const notes=[];
- for(const e of state.entries){
-   if(!e.series?.length){notes.push(e.title+': 데이터 수집 대기');continue;}
-   const last=e.series.at(-1),period=e.id==='us_curve'?63:3;
-   const prior=e.series[Math.max(0,e.series.length-1-period)];
-   const delta=last.value-prior.value;
-   notes.push(e.title+': '+fixed(last.value)+(e.unit||'')+' ('+last.date+'). 약 '+(period===63?'3개월':'3개월')+' 전 대비 '+(delta>=0?'+':'')+fixed(delta)+(e.unit||'pt')+'.');
- }
- el('analysisNotes').innerHTML=notes.map(n=>'<div class="analysis-point">'+esc(n)+'</div>').join('');
+ el('analysisNotes').innerHTML=renderIndicatorNotes(state.entries);
 }
 function initRange(){
  document.querySelectorAll('[data-years]').forEach(b=>b.addEventListener('click',()=>{
