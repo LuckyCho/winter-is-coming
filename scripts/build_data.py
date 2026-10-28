@@ -76,6 +76,48 @@ def parse_oecd_csv(text: str) -> dict[str, list[dict]]:
             for c, values in by_country.items()}
 
 
+def parse_treasury_csv(text: str) -> list[dict]:
+    """Read official US Treasury yield curve CSV and compute 10Y minus 3M."""
+    from datetime import datetime
+    reader = csv.DictReader(io.StringIO(text))
+    fields = {name.strip(): name for name in (reader.fieldnames or [])}
+    if not {"Date", "3 Mo", "10 Yr"}.issubset(fields):
+        raise ValueError("Treasury CSV missing Date / 3 Mo / 10 Yr columns")
+    result = {}
+    for row in reader:
+        try:
+            day = datetime.strptime(row[fields["Date"]].strip(), "%m/%d/%Y").date().isoformat()
+            short = float(row[fields["3 Mo"]].strip())
+            long = float(row[fields["10 Yr"]].strip())
+            if math.isfinite(short) and math.isfinite(long):
+                result[day] = round(long - short, 5)
+        except (ValueError, TypeError, AttributeError, KeyError):
+            continue
+    if not result:
+        raise ValueError("Treasury CSV has no valid yield-curve observations")
+    return [{"date": day, "value": v} for day, v in sorted(result.items())]
+
+
+def collect_treasury_fallback() -> list[dict]:
+    """Use official Treasury files if FRED's public CSV endpoint is unavailable."""
+    year = datetime.now(timezone.utc).year
+    values = {}
+    for y in range(year - 10, year + 1):
+        url = (
+            f"https://home.treasury.gov/resource-center/data-chart-center/"
+            f"interest-rates/daily-treasury-rates.csv/{y}/all"
+            f"?type=daily_treasury_yield_curve&field_tdr_date_value={y}&page&_format=csv"
+        )
+        try:
+            for item in parse_treasury_csv(download_csv(url)):
+                values[item["date"]] = item["value"]
+        except Exception as exc:
+            print(f"WARNING: Treasury year {y}: {exc}", file=sys.stderr)
+    if not values:
+        raise ValueError("Treasury fallback has no valid observations")
+    return [{"date": day, "value": v} for day, v in sorted(values.items())]
+
+
 def update_snapshot(data: dict, sources: dict, generated: str) -> dict:
     for indicator in data["indicators"]:
         if indicator.get("kind") == "external":
@@ -95,7 +137,12 @@ def main() -> int:
         sources["us_curve"] = parse_fred_csv(download_csv(FRED))
         print("FRED observations:", len(sources["us_curve"]))
     except Exception as e:
-        errors.append("FRED: " + str(e))
+        print("WARNING: FRED unavailable, trying US Treasury: " + str(e), file=sys.stderr)
+        try:
+            sources["us_curve"] = collect_treasury_fallback()
+            print("Treasury observations:", len(sources["us_curve"]))
+        except Exception as fallback_error:
+            errors.append("FRED + Treasury: " + str(e) + " / " + str(fallback_error))
     try:
         oecd = parse_oecd_csv(download_csv(OECD))
         sources["us_cli"], sources["kr_cli"] = oecd["USA"], oecd["KOR"]
