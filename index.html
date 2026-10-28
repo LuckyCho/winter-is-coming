@@ -83,8 +83,9 @@
           <h2>데이터를 어떻게 다루나요?</h2>
         </div>
         <div class="source-copy">
-          <p>GitHub Actions가 매일 미국 연방준비은행 FRED 및 OECD에서 조회 가능한 데이터를 확인하고, 수집 성공 시 JSON을 갱신합니다. 페이지 방문 시 외부 API를 반복 호출하지 않습니다.</p>
-          <p>ICE BofA 신용스프레드는 별도 권리 확인이 필요한 자료이므로 초기 공개판에서는 데이터 복제 없이 공식 FRED 자료 페이지로 연결합니다. 미국 선행지수는 OECD CLI를 사용하며, Conference Board의 LEI와는 다른 지표입니다.</p>
+          <p>GitHub Actions가 매일 FRED·미국 재무부 및 OECD의 공개 데이터를 확인하고, 수집 성공 시 JSON을 갱신합니다. 일반 지표 차트는 방문 시 저장된 JSON을 읽습니다.</p>
+          <p>하이일드·CCC 이하 신용스프레드는 ICE Data Indices, LLC 자료를 FRED의 <strong>공식 삽입 그래프</strong>로 표시합니다. 이 차트는 방문 시 FRED에서 직접 불러오며 저작권 보호 시계열을 GitHub에 재배포하지 않습니다. FRED에서 제공하는 최근 3년 자료만 표시되므로 상단의 1·3·5·10년 선택과 별도로 동작합니다.</p>
+          <p>미국 선행지수는 OECD CLI이며 Conference Board의 LEI와 다른 지표입니다. 본 페이지는 비상업적 정보 관찰용입니다.</p>
           <p>갱신 실패 시 이전 데이터가 남을 수 있으므로 <strong>사이트 갱신일과 각 지표의 실제 관측일</strong>을 모두 표시합니다.</p>
         </div>
       </section>
@@ -92,7 +93,7 @@
 
     <footer>
       <div class="footer-title">WINTER IS COMING<span>?</span></div>
-      <span>Data: FRED / OECD · 비상업적 경제 정보 관찰 프로젝트</span>
+      <span>Data: US Treasury / OECD · ICE Data Indices, LLC via FRED · 비상업적 관찰</span>
       <span>Made for better questions, not certain predictions.</span>
     </footer>
   </div>
